@@ -1,0 +1,66 @@
+﻿@using Nop.Plugin.Payments.Stripe.Models;
+@model PaymentInfoModel
+<script src="https://checkout.stripe.com/checkout.js"></script>
+<script src="https://js.stripe.com/v3/"></script>
+<div class="search-input">
+    <button id="customButton" class="button-1">Purchase</button>
+    @Html.HiddenFor(model => model.StripeSource)
+</div>
+
+<script>
+    var stripe = Stripe('@Html.Raw(Model.StripePublicApiKey)', {stripeAccount: '@Html.Raw(Model.AccountId)'});
+    var handler = StripeCheckout.configure({
+        key: 'pk_test_ROTdsqa6UtoSaDzWZPIKQfCY',
+        image: 'https://stripe.com/img/documentation/checkout/marketplace.png',
+        locale: 'auto',
+        token: function (token) {
+            stripe.createSource({
+                type: 'card',
+                token: token.id,
+            }).then(function(result) {
+                if (result.error) {
+                    // Inform the user if there was an error
+                    alert(result.error.message)
+                }// check if the card supports 3DS
+                else if (result.source.card.three_d_secure == 'required') {
+                    // create the 3DS source from the card source
+                    stripe.createSource({
+                        type: 'three_d_secure',
+                        amount: @Model.Amount,
+                        currency: 'cad',
+                        three_d_secure: {
+                            card: result.source.id
+                        },
+                        redirect: {
+                            return_url: '@Model.ReturnUrl'
+                            }
+                    }).then(function(result) {
+                        window.location.href = result.source.redirect.url
+                    })
+                }else {
+                    // Send the source to your server
+                    window.location.href = "Plugins/PaymentStripe/Return/?source=" + result.source.id;
+                }
+            });
+        }
+    });
+
+    document.getElementById('customButton').addEventListener('click', function (e) {
+        // Open Checkout with further options:
+        handler.open({
+            name: 'Wddc',
+            description: '2 widgets',
+            currency: 'cad',
+            amount: @Model.Amount,
+            email: "@Model.CustomerEmail",
+            billingAddress: true,
+            allowRememberMe: false,
+        });
+        e.preventDefault();
+    });
+
+    // Close Checkout on page navigation:
+    window.addEventListener('popstate', function () {
+        handler.close();
+    });
+</script>
